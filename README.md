@@ -22,3 +22,12 @@ If you find our work useful in your research, please consider citing our paper:
   year={2024},
   organization={IEEE}
 }
+
+
+# Setup
+
+Please refer to the codebase of [VFDepth](https://github.com/42dot/VFDepth) and [SurroundDepth](https://github.com/weiyithu/SurroundDepth) for data preparation. Our code also borrows largely from [VFDepth](https://github.com/42dot/VFDepth).
+
+#Trained Models
+You may find the trained models for resnet 18 and resnet 34 models on ddad and nuscens here: 链接: https://pan.baidu.com/s/1tnMe0jWVpvjG1JnQHnS0xw 提取码: ly66
+

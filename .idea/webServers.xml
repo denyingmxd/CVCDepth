@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="a68ca309-8336-4d67-9842-e72889fc48ba" name="cvcdepth">
+        <fileTransfer rootFolder="/data/laiyan" accessType="SFTP" host="10.26.10.102" port="22" sshConfigId="89f205ba-0db8-406d-ae5e-a142e50aa8a4" sshConfig="laiyan@10.26.10.102:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

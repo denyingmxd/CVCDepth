@@ -20,22 +20,9 @@ class Pose:
         """
         This function computes multi-camera posse in accordance with the network structure.
         """
-        if self.pose_model == 'fusion':
-            pose = self.get_single_pose(net, inputs, None)
-            pose = self.distribute_pose(pose, inputs['extrinsics'], inputs['extrinsics_inv'])
-        elif self.pose_model =='front':
+        if self.pose_model =='front':
             pose = self.get_single_pose(net, inputs, self.pose_model)
             pose = self.distribute_pose(pose, inputs['extrinsics'], inputs['extrinsics_inv'])
-        elif self.pose_model =='joint' or self.pose_model=='joint_trans' or self.pose_model=='joint_attn':
-            pose = self.get_single_pose(net, inputs, self.pose_model)
-            pose = self.distribute_pose_central(pose, inputs['extrinsics'], inputs['extrinsics_inv'])
-        elif self.pose_model =='joint_front' or self.pose_model =='front_trans' or self.pose_model=='front_attn':
-            pose = self.get_single_pose(net, inputs, self.pose_model)
-            pose = self.distribute_pose(pose, inputs['extrinsics'], inputs['extrinsics_inv'])
-        elif self.pose_model=='fsm' or self.pose_model=='fsm_pose':
-            pose = {}
-            for cam in range(self.num_cams):
-                pose[('cam', cam)] = self.get_single_pose(net, inputs, cam)
         else:
             raise NotImplementedError
         return pose
@@ -51,7 +38,7 @@ class Pose:
             axisangle, translation = net(inputs, frame_ids, cam)
             output[('cam_T_cam', 0, f_i)] = vec_to_matrix(axisangle[:, 0], translation[:, 0], invert=(f_i < 0))
 
-            if inputs.get('flip_version') is not None and inputs['flip_version']>=3:
+            if inputs.get('flip_version') is not None and inputs['flip_version']==5:
                 assert self.pose_model!='fsm'
                 bs = output[('cam_T_cam', 0, f_i)].shape[0]
                 res=[]

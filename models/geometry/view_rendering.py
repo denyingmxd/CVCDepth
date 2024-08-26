@@ -213,22 +213,6 @@ class ViewRendering(nn.Module):
                                         source_scale
                                     )
 
-                                elif self.spatial_depth_consistency_type=='forward':
-                                    src_depth = outputs[('cam', cur_index)][('depth', scale)]
-                                    src_invK = inputs[('inv_K', source_scale)][:, cur_index, ...]
-                                    warped_depth = self.project.get_unnormed_projects(src_depth,torch.linalg.inv(rel_pose),src_invK,ref_K)
-                                elif self.spatial_depth_consistency_type=='wrong':
-                                    src_depth = outputs[('cam', cur_index)][('depth', scale)]
-
-                                    warped_depth, warped_mask = self.get_virtual_image(
-                                        src_depth,
-                                        src_mask,
-                                        ref_depth,
-                                        ref_invK,
-                                        src_K,
-                                        rel_pose,
-                                        source_scale
-                                    )
                                 else:
                                     raise NotImplementedError
 

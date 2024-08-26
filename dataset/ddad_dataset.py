@@ -118,13 +118,13 @@ class DDADdataset(torch.utils.data.Dataset):
         self.mode=mode
         self.with_depth = self.mode=='val'
         self.with_input_depth = False
-        with open('/data/laiyan/ssd/ddad/meta_data/info_{}.pkl'.format(mode), 'rb') as f:
+        with open('./dataset/ddad/info_{}.pkl'.format(mode), 'rb') as f:
             self.info = pickle.load(f)
         if cfg['eval'].get('vis_only') and cfg['eval'].get('vis_only') == True:
             with open('./{}.txt'.format('vis'), 'r') as f:
                 self.filenames = f.readlines()
         else:
-            with open('/data/laiyan/airs/SurroundDepth/datasets/ddad/{}.txt'.format(mode), 'r') as f:
+            with open('./dataset/ddad/{}.txt'.format(mode), 'r') as f:
                 self.filenames = f.readlines()
 
         self.rgb_path = '/data/laiyan/ssd/ddad/raw_data/'

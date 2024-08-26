@@ -22,31 +22,19 @@ class MonoPoseNet(nn.Module):
                                         num_frames_to_predict_for=1)
 
     def forward(self, inputs, frame_ids, cam):
-        assert cam!='fusion'
+
         if inputs.get('flip_version') is not None and inputs['flip_version']>=3:
             ext='_flip'
         else:
             ext = ""
-        if cam == 'joint' or cam == 'joint_front':
-            B, N, C, H, W = inputs['color_aug'+ext, 0, 0].shape
-            pose_inputs =[inputs['color_aug'+ext, f_i, 0].reshape(N*B,C,H,W) for f_i in frame_ids]
-            input_images = torch.cat(pose_inputs,1)
-            all_features = [self.pose_encoder(input_images)]
-            B, C, H, W = all_features[0][-1].shape
-
-            pose_feature = [[f[-1].reshape(-1, 6, C, H, W).mean(1) for f in all_features]]
-            axis_angle, translation = self.pose_decoder(pose_feature)
-            return axis_angle, torch.clamp(translation, -4.0, 4.0)  # for DDAD da
-
-        elif cam=='front':
+        if cam=='front':
             pose_inputs = [inputs['color_aug'+ext, f_i, 0][:, 0, ...] for f_i in frame_ids]
         else:
-            pose_inputs = [inputs['color_aug'+ext, f_i, 0][:, cam, ...] for f_i in frame_ids]
+            raise NotImplementedError('Only front camera is supported for pose estimation')
         input_images = torch.cat(pose_inputs, 1)
         pose_feature = [self.pose_encoder(input_images)]
         axis_angle, translation = self.pose_decoder(pose_feature)
         return axis_angle, torch.clamp(translation, -4.0, 4.0) # for DDAD dataset
 
-# TRI-VIDAR - Copyright 2022 Toyota Research Institute.  All rights reserved.
 
 

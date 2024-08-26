@@ -83,86 +83,22 @@ class MultiCamLoss(SingleCamLoss):
 
     def compute_sp_tp_recon_con_loss(self, inputs, target_view, cam=None, scale=None, ref_mask=None, reproj_loss_mask=None):
         sp_tp_recon_con_loss = 0
-        if hasattr(self,'sptp_recon_con_type'):
-            if self.sptp_recon_con_type=='combine':
-                pred_mask = ref_mask * target_view[('overlap_mask', -1, scale)]
-                pred_mask = pred_mask * reproj_loss_mask
-                pred_mask = pred_mask * target_view[('overlap_mask', 0, scale)]
-                pred_mask = pred_mask * target_view[('overlap_mask', 1, scale)]
-
-                loss_args = {
-                    'pred': target_view[('stp_reproj_combined', scale)],
-                    'target': target_view[('overlap', 0, scale)],
-                }
-                local_loss = compute_photometric_loss(**loss_args)
-
-                sp_tp_recon_con_loss = sp_tp_recon_con_loss + compute_masked_loss(local_loss, pred_mask)
-                target_view[('sp_tp_recon_con_loss', scale, -1)] = local_loss * pred_mask
-                target_view[('sp_tp_recon_con_loss', scale, 1)] = local_loss * pred_mask
-                return sp_tp_recon_con_loss
-        else:
-            for frame_id in self.frame_ids[1:]:
-                pred_mask = ref_mask * target_view[('overlap_mask', frame_id, scale)]
-                pred_mask = pred_mask * reproj_loss_mask
-                pred_mask = pred_mask * target_view[('overlap_mask', 0, scale)]
-
-                loss_args = {
-                    'pred': target_view[('overlap', frame_id, scale)],
-                    'target': target_view[('overlap', 0, scale)],
-                }
-                local_loss = compute_photometric_loss(**loss_args)
-
-                sp_tp_recon_con_loss = sp_tp_recon_con_loss+ compute_masked_loss(local_loss,pred_mask)
-                target_view[('sp_tp_recon_con_loss', scale,frame_id)] = local_loss*pred_mask
-            return sp_tp_recon_con_loss/len(self.frame_ids[1:])
-
-    def compute_spatial_depth_aug_smooth_loss(self,inputs, target_view, cam=None, scale=None, ref_mask=None, reproj_loss_mask=None):
-        spatio_mask = ref_mask * target_view[('overlap_mask', 0, scale)]
-
-        overlap_depth = target_view[('overlap_depth', 0, scale)]
-        depth_aug_smooth_mask = spatio_mask * (overlap_depth > 0)
-
-        color = inputs['color', 0, scale][:, cam, ...]
-        original_depth = target_view[('depth', scale)]
-
-        mean_original_depth = original_depth.mean(2, True).mean(3, True)
-
-        normed_depth = overlap_depth / (mean_original_depth + 1e-8)
-
-        return compute_masked_edg_smooth_loss(color, normed_depth, depth_aug_smooth_mask)
-
-    def compute_pose_con_loss(self, inputs, outputs, cam=None, scale=None, ref_mask=None, reproj_loss_mask=None) :
-        """
-        This function computes pose consistency loss in "Full surround monodepth from multiple cameras"
-        """
-        ref_output = outputs[('cam', 0)]
-        ref_ext = inputs['extrinsics'][:, 0, ...]
-        ref_ext_inv = inputs['extrinsics_inv'][:, 0, ...]
-
-        cur_output = outputs[('cam', cam)]
-        cur_ext = inputs['extrinsics'][:, cam, ...]
-        cur_ext_inv = inputs['extrinsics_inv'][:, cam, ...]
-
-        trans_loss = 0.
-        angle_loss = 0.
 
         for frame_id in self.frame_ids[1:]:
-            ref_T = ref_output[('cam_T_cam', 0, frame_id)]
-            cur_T = cur_output[('cam_T_cam', 0, frame_id)]
+            pred_mask = ref_mask * target_view[('overlap_mask', frame_id, scale)]
+            pred_mask = pred_mask * reproj_loss_mask
+            pred_mask = pred_mask * target_view[('overlap_mask', 0, scale)]
 
-            cur_T_aligned = ref_ext_inv@cur_ext@cur_T@cur_ext_inv@ref_ext
+            loss_args = {
+                'pred': target_view[('overlap', frame_id, scale)],
+                'target': target_view[('overlap', 0, scale)],
+            }
+            local_loss = compute_photometric_loss(**loss_args)
 
-            ref_ang = matrix_to_euler_angles(ref_T[:,:3,:3], 'XYZ')
-            cur_ang = matrix_to_euler_angles(cur_T_aligned[:,:3,:3], 'XYZ')
+            sp_tp_recon_con_loss = sp_tp_recon_con_loss+ compute_masked_loss(local_loss,pred_mask)
+            target_view[('sp_tp_recon_con_loss', scale,frame_id)] = local_loss*pred_mask
+        return sp_tp_recon_con_loss/len(self.frame_ids[1:])
 
-            ang_diff = torch.norm(ref_ang - cur_ang, p=2, dim=1).mean()
-            t_diff = torch.norm(ref_T[:,:3,3] - cur_T_aligned[:,:3,3], p=2, dim=1).mean()
-
-            trans_loss += t_diff
-            angle_loss += ang_diff
-
-        pose_loss = (trans_loss + 10 * angle_loss) / len(self.frame_ids[1:])
-        return pose_loss
 
     def forward(self, inputs, outputs, cam):
         loss_dict = {}

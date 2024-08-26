@@ -105,18 +105,17 @@ class NUSCdataset(torch.utils.data.Dataset):
         self.mode=mode
         self.with_depth = self.mode=='val'
         self.with_input_depth = False
-        with open('/data/laiyan/airs/VFDepth/dataset/nusc/info_{}.pkl'.format(mode), 'rb') as f:
+        with open('./dataset/nusc/info_{}.pkl'.format(mode), 'rb') as f:
             self.info = pickle.load(f)
 
-        if cfg['eval']['type']=='surrounddepth':
-            with open("/data/laiyan/airs/SurroundDepth/datasets/nusc/{}.txt".format(mode), 'r') as f:
+        if hasattr(cfg['eval'],'type') and cfg['eval']['type']=='surrounddepth':
+            with open("./dataset{}.txt".format(mode), 'r') as f:
+                self.filenames = f.readlines()
+        elif cfg['eval'].get('vis_only') and cfg['eval'].get('vis_only') == True:
+            with open('./dataset/nusc/{}.txt'.format('vis'), 'r') as f:
                 self.filenames = f.readlines()
         else:
-            with open('/data/laiyan/airs/VFDepth/dataset/nusc/{}_vf.txt'.format(mode), 'r') as f:
-                self.filenames = f.readlines()
-
-        if cfg['eval'].get('overlap') is True:
-            with open("/data/laiyan/airs/SurroundDepth/datasets/nusc/{}_overlap.txt".format(mode), 'r') as f:
+            with open('./dataset/nusc/{}_vf.txt'.format(mode), 'r') as f:
                 self.filenames = f.readlines()
 
         self.data_root = '/data/laiyan/datasets/nuscenes/v1.0/'
@@ -164,11 +163,11 @@ class NUSCdataset(torch.utils.data.Dataset):
 
                 if self.cfg['eval'].get('overlap') is True:
                     data.update({
-                        'my_depth': np.load(rgb_filename.replace('jpg', 'npz').replace('samples', 'overlap_depth/samples'))['arr_0'][None,:]
+                        'depth': np.load(rgb_filename.replace('jpg', 'npz').replace('samples', 'overlap_depth/samples'))['arr_0'][None,:]
                     })
                 else:
                     data.update({
-                        'my_depth':np.load(rgb_filename.replace('jpg','npy').replace('samples','depth/samples'))[None,:]
+                        'depth':np.load(rgb_filename.replace('jpg','npy').replace('samples','depth/samples'))[None,:]
                     })
             # if depth is returned
 

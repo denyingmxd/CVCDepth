@@ -12,7 +12,7 @@ from network import *
 
 from .base_model import BaseModel
 from .geometry import Pose, ViewRendering
-from .losses import DepthSynLoss, MultiCamLoss, SingleCamLoss
+from .losses import  MultiCamLoss, SingleCamLoss
 import kornia
 _NO_DEVICE_KEYS = ['idx', 'dataset_idx', 'sensor_name', 'filename']
 
@@ -46,9 +46,7 @@ class VFDepthAlgo(BaseModel):
         return view_rendering, pose
 
     def init_losses(self, cfg, rank):
-        if self.aug_depth:
-            loss_model = DepthSynLoss(cfg, rank)
-        elif self.spatio_temporal or self.spatio:
+        if self.spatio_temporal or self.spatio:
             loss_model = MultiCamLoss(cfg, rank)
         else:
             loss_model = SingleCamLoss(cfg, rank)
@@ -72,28 +70,14 @@ class VFDepthAlgo(BaseModel):
         return models
 
     def set_posenet(self, cfg):
-        if self.pose_model == 'fusion':
-            return FusedPoseNet(cfg).cuda()
-        elif self.pose_model == 'front' or self.pose_model == 'joint' or self.pose_model == 'joint_front' :
+        if self.pose_model == 'front':
             return MonoPoseNet(cfg).cuda()
-        elif self.pose_model == 'front_trans' or self.pose_model == 'joint_trans' :
-            return MonoPoseNet_trans(cfg).cuda()
-        elif self.pose_model == 'front_attn' or self.pose_model == 'joint_attn' :
-            return MonoPoseNet_attn(cfg).cuda()
-        if self.pose_model == 'fsm_pose':
-            return MonoFSMPoseNet(cfg).cuda()
         else:
-            return MonoPoseNet(cfg).cuda()
+            raise NotImplementedError('Not implemented for PoseNet')
 
     def set_depthnet(self, cfg):
-        if self.depth_model == 'fusion':
-            return FusedDepthNet(cfg).cuda()
-        elif self.depth_model == 'scnn':
-            return MonoDepthNet_scnn(cfg).cuda()
-        elif self.depth_model == 'attn':
-            return MonoDepthNet_attn(cfg).cuda()
-        else:
-            return MonoDepthNet(cfg).cuda()
+
+        return MonoDepthNet(cfg).cuda()
 
     def prepare_dataset(self, cfg, rank):
         if rank == 0:
@@ -101,8 +85,6 @@ class VFDepthAlgo(BaseModel):
 
         if self.mode == 'train':
             self.set_train_dataloader(cfg, rank)
-            # if rank == 0:
-            #     self.set_val_dataloader(cfg)
 
         if self.mode == 'eval':
             self.set_eval_dataloader(cfg)
@@ -241,8 +223,6 @@ class VFDepthAlgo(BaseModel):
             for cam in range(self.num_cams):
                 outputs[('cam', cam)].update(depth_feats[('cam', cam)])
 
-            if self.syn_visualize:
-                outputs['disp_vis'] = depth_feats['disp_vis']
 
             self.compute_depth_maps(inputs, outputs)
             return outputs
@@ -263,8 +243,6 @@ class VFDepthAlgo(BaseModel):
                 outputs[('cam', cam)].update(depth_feats[('cam', cam)])
 
 
-            if self.syn_visualize:
-                outputs['disp_vis'] = depth_feats['disp_vis']
 
             self.compute_depth_maps(inputs, outputs)
             return outputs
@@ -295,61 +273,46 @@ class VFDepthAlgo(BaseModel):
         else:
             net = self.models['depth_net']
 
-        if self.depth_model == 'fusion':
-            depth_feats = net(inputs)
-            if self.aug_depth:
-                inputs['extrinsics_aug'] = depth_feats['extrinsics_aug']
 
-            # if hasattr(self, 'flip_version') and self.mode=='train':
-            #     hflip = kornia.geometry.transform.Hflip()
-            #     if self.flip_version<=2 or self.flip_version>=5:
-            #         for scale in self.scales:
-            #             for cam in range(self.num_cams):
-            #                 disps = depth_feats[('cam', cam)] [('disp',scale)]
-            #                 depth_feats[('cam', cam)].update({('disp', scale): hflip(disps)})
-            #                 if self.aug_depth:
-            #                     disps_aug = depth_feats[('cam', cam)][('disp', scale,'aug')]
-            #                     depth_feats[('cam', cam)].update({('disp', scale,'aug'): hflip(disps_aug)})
+        depth_feats = {}
+
+        if hasattr(self, 'flip_version') and self.mode=='train':
+            if self.flip_version==5:
+                input_depth = inputs[('color_aug_flip', 0, 0)]
         else:
-            depth_feats = {}
-
-            if hasattr(self, 'flip_version') and self.mode=='train':
-                if self.flip_version<=2 or self.flip_version>=5:
-                    input_depth = inputs[('color_aug_flip', 0, 0)]
-            else:
-                input_depth = inputs[('color_aug', 0, 0)]
+            input_depth = inputs[('color_aug', 0, 0)]
 
 
-            B,N,C,H,W = input_depth.shape
-            disps = net(input_depth.reshape(B*N,C,H,W))
+        B,N,C,H,W = input_depth.shape
+        disps = net(input_depth.reshape(B*N,C,H,W))
 
-            if hasattr(self, 'flip_version') and self.mode=='train':
-                if self.flip_version<=2 or self.flip_version>=5:
+        if hasattr(self, 'flip_version') and self.mode=='train':
+            if self.flip_version==5:
 
-                    hflip = kornia.geometry.transform.Hflip()
-                    flips = torch.flatten(inputs['flips'],0,1)
-                    assert len(flips)==B*N
-                    for scale in self.scales:
-                        aaa = []
-                        diss = disps[('disp',scale)]
-                        for i in range(B*N):
-                            local_disp = diss[i]
-                            if flips[i].item()>0:
-                                aaa.append(hflip(local_disp))
-                            else:
-                                aaa.append(local_disp)
-                        disps[('disp',scale)] = torch.stack(aaa)
-            else:
-                pass
+                hflip = kornia.geometry.transform.Hflip()
+                flips = torch.flatten(inputs['flips'],0,1)
+                assert len(flips)==B*N
+                for scale in self.scales:
+                    aaa = []
+                    diss = disps[('disp',scale)]
+                    for i in range(B*N):
+                        local_disp = diss[i]
+                        if flips[i].item()>0:
+                            aaa.append(hflip(local_disp))
+                        else:
+                            aaa.append(local_disp)
+                    disps[('disp',scale)] = torch.stack(aaa)
+        else:
+            pass
 
-            for scale in self.scales:
-                disps_one_scale = disps[('disp',scale)]
-                BN,C,H,W = disps_one_scale.shape
-                disps_one_scale = disps_one_scale.reshape(B,N,C,H,W)
-                for cam in range(self.num_cams):
+        for scale in self.scales:
+            disps_one_scale = disps[('disp',scale)]
+            BN,C,H,W = disps_one_scale.shape
+            disps_one_scale = disps_one_scale.reshape(B,N,C,H,W)
+            for cam in range(self.num_cams):
 
-                    depth = disps_one_scale[:, cam, ...]
-                    depth_feats[('cam', cam)] =  {('disp',scale):depth}
+                depth = disps_one_scale[:, cam, ...]
+                depth_feats[('cam', cam)] =  {('disp',scale):depth}
 
         return depth_feats
 
@@ -365,9 +328,6 @@ class VFDepthAlgo(BaseModel):
                 outputs[('cam', cam)][('depth', scale)] = self.to_depth(disp, ref_K)
 
 
-                if self.aug_depth:
-                    disp = outputs[('cam', cam)][('disp', scale, 'aug')]
-                    outputs[('cam', cam)][('depth', scale, 'aug')] = self.to_depth(disp, ref_K)
 
     def to_depth(self, disp_in, K_in):
         """

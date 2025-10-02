@@ -8,6 +8,7 @@ Laiyan Ding, Hualie Jiang, Jie Li, Yongquan Chen, Rui Huang
 
 [IROS 2024 (arXiv pdf)](https://arxiv.org/abs/2407.04041)
 
+Please note that this code may have issue with batch-size larger than 1. You may refer to https://github.com/denyingmxd/FSM_stable/tree/master for some help. If I remember correct, the new code should be more efficient and robust.
 
 
 This code is for non-commercial use.
